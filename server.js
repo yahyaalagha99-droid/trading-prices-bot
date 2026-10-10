@@ -1,68 +1,85 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { spawn } from 'child_process';
+import compression from 'compression';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import apiRoutes from './routes/api.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/* ================= الإعدادات ================= */
+const PORT = Number(process.env.PORT) || 3000;
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
+const IS_PROD = NODE_ENV === 'production';
+
+const CORS_ORIGINS = String(process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
 
-app.post('/predict', (req, res) => {
-  const { prices } = req.body;
+// مهم على Render (بروكسي)
+app.set('trust proxy', 1);
 
-  if (!prices || !Array.isArray(prices)) {
-    return res.status(400).json({ error: 'prices must be an array' });
-  }
+/* ================= CORS ================= */
+app.use(
+  cors(
+    CORS_ORIGINS.length
+      ? { origin: CORS_ORIGINS, credentials: true }
+      : { origin: true }
+  )
+);
 
-  // استخدام python أو python3 حسب البيئة المتاحة
-  const pythonExecutable = process.platform === 'win32' ? 'python' : 'python3';
-  const py = spawn(pythonExecutable, ['price_predictor.py']);
+/* ================= الأمان ================= */
+app.use(helmet({ contentSecurityPolicy: false }));
 
-  let dataString = '';
-  let errorString = '';
+/* ================= compression (لا يكبس الستريم) ================= */
+app.use(
+  compression({
+    filter: (req, res) => {
+      const ct = String(res.getHeader('Content-Type') || '');
+      if (ct.includes('text/event-stream')) return false;
+      return compression.filter(req, res);
+    },
+  })
+);
 
-  // إرسال البيانات إلى سكريبت بايثون
-  py.stdin.write(JSON.stringify(prices));
-  py.stdin.end();
+app.use(morgan(IS_PROD ? 'combined' : 'dev'));
+app.use(express.json({ limit: '1mb' }));
 
-  py.stdout.on('data', (data) => {
-    dataString += data.toString();
-  });
+/* ================= rate limit ================= */
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
+});
+app.use(limiter);
 
-  py.stderr.on('data', (data) => {
-    errorString += data.toString();
-  });
+/* ================= الواجهة (Frontend) ================= */
+app.use(express.static(path.join(__dirname, 'Frontend')));
 
-  py.on('close', (code) => {
-    if (code !== 0) {
-      console.error('Python script error output:', errorString);
-      return res.status(500).json({ 
-        error: 'Python script failed', 
-        details: errorString.trim() 
-      });
-    }
+/* ================= الراوتات: /ask و /ask/stream ================= */
+app.use('/', apiRoutes);
 
-    try {
-      const result = JSON.parse(dataString);
-      return res.json(result);
-    } catch (e) {
-      console.error('JSON Parse error:', dataString);
-      return res.status(500).json({ 
-        error: 'Python returned invalid JSON', 
-        raw: dataString.trim() 
-      });
-    }
-  });
+app.get('/health', (_req, res) => res.json({ ok: true, env: NODE_ENV }));
 
-  // معالجة خطأ فشل بدء العملية من الأساس
-  py.on('error', (err) => {
-    console.error('Failed to start Python process:', err);
-    return res.status(500).json({ 
-      error: 'Failed to execute prediction process' 
-    });
-  });
+/* ================= 404 ================= */
+app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+
+/* ================= error handler ================= */
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Server error' });
 });
 
-const PORT = process.env.PORT || 3000;
+/* ================= تشغيل ================= */
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`MAi Bot running on port ${PORT} - ${NODE_ENV} 🚀`);
 });
