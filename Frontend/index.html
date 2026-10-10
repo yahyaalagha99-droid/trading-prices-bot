@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MAi Bot</title>
+<style>
+  body { font-family: system-ui, "Segoe UI", Tahoma, sans-serif; background:#0f1117; color:#e8e8e8;
+         margin:0; display:flex; flex-direction:column; height:100vh; }
+  header { padding:14px 18px; background:#171a23; font-weight:700; }
+  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:80%; padding:10px 14px; border-radius:14px; line-height:1.7; white-space:pre-wrap; }
+  .user { align-self:flex-start; background:#2563eb; }
+  .bot  { align-self:flex-end; background:#1f2430; }
+  form { display:flex; gap:8px; padding:12px; background:#171a23; }
+  input { flex:1; padding:12px; border-radius:10px; border:1px solid #2a2f3a; background:#0f1117; color:#fff; }
+  button { padding:12px 20px; border:0; border-radius:10px; background:#2563eb; color:#fff; font-weight:700; cursor:pointer; }
+</style>
+</head>
+<body>
+<header>MAi Bot</header>
+<div id="chat"></div>
+<form id="f">
+  <input id="q" autocomplete="off" placeholder="اكتب رسالتك..." />
+  <button>إرسال</button>
+</form>
+
+<script>
+const chat  = document.getElementById("chat");
+const input = document.getElementById("q");
+
+// الذاكرة محلية بالمتصفح
+let history = [];
+
+// تنشئ فقاعة وتسويها بالشات وترجّع العنصر
+function addBubble(text, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  addBubble(text, "user");                // فقاعة المستخدم
+  const botEl = addBubble("", "bot");     // فقاعة البوت: فارغة، تتعمر كلمة كلمة
+
+  history.push({ role: "user", content: text });
+
+  try {
+    const res = await fetch("/ask/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: history })
+    });
+
+    if (!res.ok || !res.body) {
+      botEl.textContent = "خطأ بالسيرفر: " + res.status;
+      return;
+    }
+
+    const reader  = res.body.getReader();   // هنا سر الكتابة كلمة كلمة
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let answer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();                 // آخر سطر ممكن ناقص
+
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") { buffer = ""; break; }
+
+        try {
+          const obj = JSON.parse(payload);
+          if (obj.token) {
+            answer += obj.token;
+            botEl.textContent = answer;     // ينكتب حرف حرف فوراً
+            chat.scrollTop = chat.scrollHeight;
+          }
+          if (obj.error) botEl.textContent = "خطأ: " + obj.error;
+        } catch { /* تجاهل */ }
+      }
+    }
+
+    if (answer) history.push({ role: "assistant", content: answer });
+    else if (!botEl.textContent) botEl.textContent = "(ما وصل رد)";
+
+  } catch (err) {
+    botEl.textContent = "خطأ بالاتصال: " + err.message;
+  }
+});
+</script>
+</body>
+</html>
