@@ -1,0 +1,5 @@
+OPENROUTER_API_KEY=ضع_مفتاحك_هنا
+MODEL=google/gemini-2.5-flash
+PORT=3000
+CORS_ORIGINS=
+NODE_ENV=production
