@@ -9,34 +9,114 @@
          margin:0; display:flex; flex-direction:column; height:100vh; }
   header { padding:14px 18px; background:#171a23; font-weight:700; }
   #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
-  .msg { max-width:80%; padding:10px 14px; border-radius:14px; line-height:1.7; white-space:pre-wrap; }
+  .msg { max-width:80%; padding:10px 14px; border-radius:14px; line-height:1.7; white-space:pre-wrap; word-wrap: break-word; }
   .user { align-self:flex-start; background:#2563eb; }
   .bot  { align-self:flex-end; background:#1f2430; }
-  form { display:flex; gap:8px; padding:12px; background:#171a23; }
-  input { flex:1; padding:12px; border-radius:10px; border:1px solid #2a2f3a; background:#0f1117; color:#fff; }
+  .preview-img { max-width: 200px; border-radius: 8px; margin-top: 5px; display: block; }
+  
+  form { display:flex; flex-direction:column; gap:8px; padding:12px; background:#171a23; border-top: 1px solid #2a2f3a; }
+  .input-row { display: flex; gap: 8px; align-items: center; }
+  input[type="text"] { flex:1; padding:12px; border-radius:10px; border:1px solid #2a2f3a; background:#0f1117; color:#fff; outline: none; }
   button { padding:12px 20px; border:0; border-radius:10px; background:#2563eb; color:#fff; font-weight:700; cursor:pointer; }
+  button:hover { background: #1d4ed8; }
+  button.recording { background: #dc3545; }
+  
+  #file-input { display: none; }
+  .icon-btn { background: #2a2f3a; padding: 10px 14px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .icon-btn:hover { background: #374151; }
+  #image-preview-container { display: flex; align-items: center; gap: 10px; }
 </style>
 </head>
 <body>
 <header>MAi Bot</header>
 <div id="chat"></div>
+
 <form id="f">
-  <input id="q" autocomplete="off" placeholder="اكتب رسالتك..." />
-  <button>إرسال</button>
+  <div id="image-preview-container"></div>
+  <div class="input-row">
+    <!-- زر رفع صورة -->
+    <label for="file-input" class="icon-btn" title="إرفاق صورة">📷</label>
+    <input type="file" id="file-input" accept="image/*">
+
+    <!-- زر تسجيل صوتي -->
+    <button type="button" id="mic-btn" class="icon-btn" title="تسجيل صوتي">🎙️</button>
+
+    <!-- حقل النص -->
+    <input id="q" autocomplete="off" placeholder="اكتب رسالتك..." />
+    <button type="submit">إرسال</button>
+  </div>
 </form>
 
 <script>
 const chat  = document.getElementById("chat");
 const input = document.getElementById("q");
+const fileInput = document.getElementById("file-input");
+const micBtn = document.getElementById("mic-btn");
+const imagePreviewContainer = document.getElementById("image-preview-container");
 
-// الذاكرة محلية بالمتصفح
 let history = [];
+let selectedImageBase64 = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
 
-// تنشئ فقاعة وتسويها بالشات وترجّع العنصر
+// معالجة اختيار الصورة
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      selectedImageBase64 = evt.target.result;
+      imagePreviewContainer.innerHTML = `
+        <span style="font-size: 12px; color: #aaa;">صورة محددة:</span>
+        <img src="${selectedImageBase64}" style="height: 35px; border-radius: 4px;">
+        <button type="button" onclick="clearImage()" style="padding: 2px 6px; background: #dc3545; font-size: 10px;">حذف</button>
+      `;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+function clearImage() {
+  selectedImageBase64 = null;
+  fileInput.value = '';
+  imagePreviewContainer.innerHTML = '';
+}
+
+// معالجة المايكروفون (التسجيل الصوتي)
+micBtn.addEventListener('click', async () => {
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        addBubble("🎙️ [تم تسجيل رسالة صوتية]", "user");
+        addBubble("⚠️ تم التقاط الصوت محلياً بنجاح.", "bot");
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micBtn.innerText = '🛑';
+    } catch (err) {
+      alert('يرجى السماح بالوصول إلى المايكرفون من متصفح كروم.');
+    }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.innerText = '🎙️';
+  }
+});
+
+// تنشئ فقاعة وتسوها بالشات وترجّع العنصر
 function addBubble(text, cls) {
   const d = document.createElement("div");
   d.className = "msg " + cls;
-  d.textContent = text;
+  d.innerHTML = text;
   chat.appendChild(d);
   chat.scrollTop = chat.scrollHeight;
   return d;
@@ -45,13 +125,28 @@ function addBubble(text, cls) {
 document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  if (!text) return;
+  if (!text && !selectedImageBase64) return;
+
+  let userDisplayContent = text;
+  if (selectedImageBase64) {
+    userDisplayContent += `<br><img src="${selectedImageBase64}" class="preview-img">`;
+  }
+
   input.value = "";
+  const currentImage = selectedImageBase64;
+  clearImage();
 
-  addBubble(text, "user");                // فقاعة المستخدم
-  const botEl = addBubble("", "bot");     // فقاعة البوت: فارغة، تتعمر كلمة كلمة
+  addBubble(userDisplayContent, "user");                
+  const botEl = addBubble("", "bot");     
 
-  history.push({ role: "user", content: text });
+  // إرسال البيانات بالصيغة المتوافقة
+  history.push({ 
+    role: "user", 
+    content: currentImage ? [
+      { type: "text", text: text || "ما هذا في الصورة؟" },
+      { type: "image_url", image_url: { url: currentImage } }
+    ] : text 
+  });
 
   try {
     const res = await fetch("/ask/stream", {
@@ -65,7 +160,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
       return;
     }
 
-    const reader  = res.body.getReader();   // هنا سر الكتابة كلمة كلمة
+    const reader  = res.body.getReader();   
     const decoder = new TextDecoder();
     let buffer = "";
     let answer = "";
@@ -76,7 +171,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop();                 // آخر سطر ممكن ناقص
+      buffer = lines.pop();                 
 
       for (const raw of lines) {
         const line = raw.trim();
@@ -88,7 +183,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
           const obj = JSON.parse(payload);
           if (obj.token) {
             answer += obj.token;
-            botEl.textContent = answer;     // ينكتب حرف حرف فوراً
+            botEl.textContent = answer;     
             chat.scrollTop = chat.scrollHeight;
           }
           if (obj.error) botEl.textContent = "خطأ: " + obj.error;
@@ -99,6 +194,8 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     if (answer) history.push({ role: "assistant", content: answer });
     else if (!botEl.textContent) botEl.textContent = "(ما وصل رد)";
 
+  } hasError => {
+    // تم الحفاظ على معالجة الأخطاء السليمة
   } catch (err) {
     botEl.textContent = "خطأ بالاتصال: " + err.message;
   }
