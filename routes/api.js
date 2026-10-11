@@ -16,7 +16,7 @@ router.post('/api/chat', async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": Bearer ${apiKey},
+        "Authorization": `Bearer ${apiKey}`,
         "HTTP-Referer": "https://trading-prices-bot.onrender.com",
         "X-Title": "MAi Bot"
       },
