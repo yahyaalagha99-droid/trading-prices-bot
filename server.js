@@ -54,8 +54,14 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-const BASE_SYSTEM = `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
-You speak naturally with high intelligence and support Kurdish, Arabic, and English.`;
+// تعديل تعليمات النظام لإجبار البوت على التحدث بنفس لغة المستخدم دائماً
+const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
+CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
+- If the user writes in Arabic, respond ONLY in natural Arabic.
+- If the user writes in Kurdish, respond ONLY in Kurdish.
+- If the user writes in English, respond ONLY in English.
+- If the user writes in German, respond ONLY in German.
+Do not mix languages or offer translations unless explicitly asked.`;
 
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
