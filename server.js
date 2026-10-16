@@ -9,10 +9,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-// قراءة المفتاح من إعدادات Render تلقائياً
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.3-70b-versatile";
+// تم تغيير الموديل إلى موديل متاح ومستقر 100% على Groq
+const MODEL = "llama-3.1-8b-instant";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
@@ -162,7 +162,7 @@ async function pipeStream(body, res) {
 
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
-    return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
+    return res.status(500).json({ error: "GROQ_API_KEY environment variable not set" });
   }
 
   res.writeHead(200, {
@@ -207,7 +207,7 @@ app.post("/ask/stream", async (req, res) => {
     }
 
     await pipeStream(upstream.body, res);
-  } catch (err) {
+  } حدث (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.write("data: [DONE]\n\n");
     res.end();
