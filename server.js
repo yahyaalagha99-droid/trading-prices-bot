@@ -9,21 +9,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// التطبيق والهوية
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// التوافق الذكي مع مفاتيح البيئة (سواء OpenRouter أو Groq)
-const API_KEY = process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY;
-const IS_OPENROUTER = !!process.env.OPENROUTER_API_KEY;
+// جلب المفتاح المخصص لـ OpenRouter
+const API_KEY = process.env.OPENROUTER_API_KEY;
+const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-const API_URL = IS_OPENROUTER 
-  ? "https://openrouter.ai/api/v1/chat/completions"
-  : "https://api.groq.com/openai/v1/chat/completions";
-
-const MODEL = process.env.MODEL || (IS_OPENROUTER ? "google/gemini-2.5-flash" : "llama-3.1-8b-instant");
-
-// خدمة ملفات الواجهة
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
 
@@ -35,7 +28,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// التعرف على أسئلة الهوية
 const DEV_QUESTIONS = [
   "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
   "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
@@ -62,19 +54,18 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-const BASE_SYSTEM = `أنت MAi Bot، مساعد ذكي واحترافي، تم تطويره بواسطة المبدع Yahya.Kurdish.
-تحدث بذكاء وسلاسة، وأجب بنفس لغة المستخدم (عربي، كردي، إنجليزي).`;
+const BASE_SYSTEM = `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
+You speak naturally with high intelligence and support Kurdish, Arabic, and English.`;
 
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
-    return res.status(500).json({ error: "مفتاح API غير معرف في متغيرات البيئة (Environment Variables)." });
+    return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set in Render" });
   }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
   });
   res.write(": connected\n\n");
 
@@ -93,19 +84,14 @@ app.post("/ask/stream", async (req, res) => {
   ];
 
   try {
-    const headers = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${API_KEY}`,
-    };
-
-    if (IS_OPENROUTER) {
-      headers["HTTP-Referer"] = "https://render.com";
-      headers["X-Title"] = APP_NAME;
-    }
-
-    const response = await globalThis.fetch(API_URL, {
+    const response = await globalThis.fetch(OPENROUTER_URL, {
       method: "POST",
-      headers: headers,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${API_KEY}`,
+        "HTTP-Referer": "https://render.com",
+        "X-Title": APP_NAME,
+      },
       body: JSON.stringify({
         model: MODEL,
         messages: payloadMessages,
@@ -115,7 +101,7 @@ app.post("/ask/stream", async (req, res) => {
 
     if (!response.ok) {
       const errTxt = await response.text().catch(() => "");
-      res.write(`data: ${JSON.stringify({ error: `API Error ${response.status}:${errTxt.slice(0, 200)}` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: `OpenRouter Error ${response.status}:${errTxt.slice(0, 200)}` })}\n\n`);
       res.write("data: [DONE]\n\n");
       return res.end();
     }
