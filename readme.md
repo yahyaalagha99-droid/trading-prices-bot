@@ -1,2 +1,27 @@
-# trading-prices-bot
-Professional trading prices bot with price prediction for mobile - متطبيق متاجرة احترافي مع توقع الأسعار
+# 🚀 MAi Bot - Trading Prices & AI Assistant
+
+Professional trading prices bot with price prediction for mobile and web.
+تطبيق متاجرة واعتناء ذكي احترافي مع تحليل التداول وتوقع الأسعار.
+
+---
+
+## 🌟 المميزات (Features)
+- 🤖 **ذكاء اصطناعي محادث المطور:** معالجة الاستفسارات بدقة واحترافية عالية مع هوية خاصة بالمطور.
+- 📈 **دعم التحليل والتداول:** مصمم لدعم التداول ومتابعة الأسعار والتوقعات.
+- 📷 **دعم الصور والصوت:** تحليل الصور والتقاط الصوتيات مباشرة من الواجهة.
+- 🌍 **دعم متعدد اللغات:** دعم كلي للغات الكردية (سوراني وكرمانجي)، العربية، والإنجليزية.
+- ⚡ **ردود بث حية (Streaming SSE):** سرعة فائقة في معالجة الاستجابة وعرض النصوص فوراً.
+- 🔒 **أمان عالي:** حماية مفاتيح API عبر متغيرات البيئة وسياسات CORS الشديدة.
+
+---
+
+## 🛠️ التقنيات المستخدمة (Tech Stack)
+- **Backend:** Node.js, Express.js
+- **Frontend:** HTML5, CSS3, JavaScript (Vanilla ES6)
+- **AI Provider:** OpenRouter / Groq API (`google/gemini-2.5-flash`)
+- **Deployment:** Render Platform
+
+---
+
+## 👨‍💻 المطور (Developer)
+تطوير وإعداد المبدع: **Yahya Kurdish** 🚀
