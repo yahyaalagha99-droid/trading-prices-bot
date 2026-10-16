@@ -1,33 +1,37 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
-import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-/* ============ الإعدادات ============ */
-const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+// قراءة المفتاح من إعدادات Render تلقائياً
+const API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL = "llama-3.3-70b-versatile";
 
-// موديل سريع + قوي بالعربي والكوردي. تگدر تبدله من ملف .env بدون لمس الكود
-const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
+app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "Frontend")));
 
-const MAX_HISTORY = 12;   // آخر ١٢ رسالة فقط = استجابة أسرع
-const MAX_TOKENS  = 800;  // سقف الرد = ما يظل يفكر طويل
-const TEMPERATURE = 0.4;  // واطي = التزام أقوى باللغة وأقل تخريف
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"), (err) => {
+    if (err) {
+      res.sendFile(path.join(__dirname, "Frontend", "index.html"));
+    }
+  });
+});
 
+const MAX_HISTORY = 12;
+const MAX_TOKENS = 800;
+const TEMPERATURE = 0.4;
 const DEV_ANSWER = "المطور هو العبقري والمبدع Yahya.Kurdish 🚀";
 
-/* ============ ١) أدوات اللغة — هنا الحل الجذري للخلط ============ */
-
-// حروف كوردية ما موجودة بالعربي = دليل قاطع على كوردي سۆرانی
-const KURDISH_SORANI_RE = /[\u0695\u06B5\u06C6\u06CE\u06D5\u06A4\u06AF]/; // ڕ ڵ ۆ ێ ە ڤ گ
-const KURDISH_LATIN_RE  = /[çêîşû]/i;                                     // کرمانجی لاتيني
+const KURDISH_SORANI_RE = /[\u0695\u06B5\u06C6\u06CE\u06D5\u06A4\u06AF]/;
+const KURDISH_LATIN_RE = /[çêîşû]/i;
 const KURDISH_LATIN_WORDS_RE = /\b(kê|ez|tu|ew|çi|spas|kurdî|bêje)\b/i;
 const ARABIC_RE = /[\u0600-\u06FF]/;
 
@@ -40,23 +44,19 @@ function detectLanguage(text = "") {
   return "en";
 }
 
-// قاعدة لغة تُحقن مع كل رسالة على حدة (مو مرة واحدة بس)
 function languageRule(lang) {
   switch (lang) {
     case "ku-sorani":
-      return "LANGUAGE LOCK: وەڵامەکەت تەنها بە کوردی (سۆرانی) بێت، بە هەمان شێوازی بەکارهێنەر. بەکارهێنانی وشەی عەرەبی یان ئینگلیزی قەدەغەیە (تەنها ناوی تەکنیکی ڕێگەپێدراوە).";
+      return "LANGUAGE LOCK: وەڵامەکەت تەنها بە کوردی (سۆرانی) بێت.";
     case "ku-latin":
-      return "LANGUAGE LOCK: Reply ONLY in Kurmanji Kurdish (Latin script). No Arabic or English words (technical names allowed).";
+      return "LANGUAGE LOCK: Reply ONLY in Kurmanji Kurdish (Latin script).";
     case "en":
-      return "LANGUAGE LOCK: Reply ONLY in English. No Arabic or Kurdish words.";
+      return "LANGUAGE LOCK: Reply ONLY in English.";
     default:
-      return "قيد اللغة: أجب الآن حصرياً بالعربية وبنفس لهجة المستخدم. يمنع استخدام أي كلمة كوردية أو جملة إنجليزية (الأسماء التقنية فقط مسموحة). لا تخلط اللغات أبداً.";
+      return "قيد اللغة: أجب الآن حصرياً بالعربية وبنفس لهجة المستخدم.";
   }
 }
 
-/* ============ ٢) كشف سؤال "منو مطورك" بشكل موحّد ============ */
-
-// توحيد الحروف: أ إ آ -> ا ، ک -> ك ، گ -> ك ، ە/ھ -> ه ، ۆ/ۇ -> و ...
 function normalizeText(s = "") {
   return String(s).toLowerCase()
     .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")
@@ -82,8 +82,6 @@ function isDevQuestion(text) {
   return !!t && DEV_QUESTIONS.some((q) => t.includes(q));
 }
 
-/* ============ ٣) بناء الرسائل (ذاكرة محدودة = سرعة) ============ */
-
 function lastUserText(body) {
   const { messages, message } = body || {};
   if (Array.isArray(messages) && messages.length) {
@@ -97,18 +95,7 @@ function lastUserText(body) {
   return typeof message === "string" ? message : "";
 }
 
-const BASE_SYSTEM = `
-أنت MAi Bot، مساعد ذكي واحترافي، تم تطويره بواسطة المبدع Yahya.Kurdish.
-
-قواعدك:
-1. تجاوب مباشرة وبنفس لغة المستخدم، بدون مقدمات طويلة وبدون إعادة صياغة السؤال.
-2. ردودك قصيرة وطبيعية (جملة إلى ست جمل عادة) لأنها تُقرأ بالصوت لاحقاً.
-3. لا تستخدم ** أو ## ولا قوائم طويلة ولا إيموجي كثيره. نص سلس فقط.
-4. تذكّر سياق المحادثة السابقة وكن مترابطاً معها.
-5. لا تسأل أسئلة إضافية إلا إذا كان السؤال ناقصاً فعلاً ويستحيل الجواب بدونه، وسؤال واحد فقط.
-6. لا تخلط اللغات نهائياً، والتزم بقيد اللغة المرفق في آخر التعليمات.
-7. إذا سُئلت عن ميزاتك: ابدأ بالدعم الأكاديمي، ثم الإيميلات والهندسة، ثم اللغات، واجعل التداول والمالية آخر القائمة.
-`;
+const BASE_SYSTEM = `أنت MAi Bot، مساعد ذكي واحترافي، تم تطويره بواسطة المبدع Yahya.Kurdish.`;
 
 function buildMessages(body, lang) {
   const { messages, message } = body || {};
@@ -121,18 +108,16 @@ function buildMessages(body, lang) {
     const clean = messages
       .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
       .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
-    return out.concat(clean.slice(-MAX_HISTORY)); // آخر N رسالة فقط
+    return out.concat(clean.slice(-MAX_HISTORY));
   }
 
   if (typeof message === "string") out.push({ role: "user", content: message });
   return out;
 }
 
-/* ============ ٤) تمرير الرد كلمة كلمة (SSE) ============ */
-
 function parseAndForward(rawLine, res) {
   const line = rawLine.trim();
-  if (!line || line.startsWith(":")) return;      // تجاهل الفواصل مثل : OPENROUTER PROCESSING
+  if (!line || line.startsWith(":")) return;
   if (!line.startsWith("data:")) return;
 
   const data = line.slice(5).trim();
@@ -146,7 +131,7 @@ function parseAndForward(rawLine, res) {
     }
     const token = json?.choices?.[0]?.delta?.content || json?.choices?.[0]?.message?.content || "";
     if (token) res.write(`data: ${JSON.stringify({ token })}\n\n`);
-  } catch { /* سطر مكسور: تجاهله ولا توقف الستريم */ }
+  } catch {}
 }
 
 async function pipeStream(body, res) {
@@ -175,23 +160,21 @@ async function pipeStream(body, res) {
   res.end();
 }
 
-/* ============ ٥) الراوتات ============ */
-
-// راوت الستريمينغ (هذا اللي يعطي تأثير كلمة كلمة)
 app.post("/ask/stream", async (req, res) => {
-  if (!API_KEY) return res.status(500).json({ error: "OPENROUTER_API_KEY not set" });
+  if (!API_KEY) {
+    return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    "X-Accel-Buffering": "no",   // يمنع Nginx من تجميع الرد
+    "X-Accel-Buffering": "no",
   });
   res.write(": connected\n\n");
 
   const userText = lastUserText(req.body);
 
-  // سؤال المطور: جواب فوري بدون أي طلب للـ API
   if (isDevQuestion(userText)) {
     res.write(`data: ${JSON.stringify({ token: DEV_ANSWER })}\n\n`);
     res.write("data: [DONE]\n\n");
@@ -201,13 +184,11 @@ app.post("/ask/stream", async (req, res) => {
   const lang = detectLanguage(userText);
 
   try {
-    const upstream = await fetch(OPENROUTER_URL, {
+    const upstream = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${API_KEY}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "MAi Bot",
       },
       body: JSON.stringify({
         model: MODEL,
@@ -215,13 +196,12 @@ app.post("/ask/stream", async (req, res) => {
         temperature: TEMPERATURE,
         max_tokens: MAX_TOKENS,
         stream: true,
-        provider: { sort: "throughput" },  // يروح على أسرع مزوّد متاح
       }),
     });
 
     if (!upstream.ok || !upstream.body) {
       const txt = await upstream.text().catch(() => "");
-      res.write(`data: ${JSON.stringify({ error: `Model error ${upstream.status}: ${txt.slice(0, 300)}` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: `Model error ${upstream.status}:${txt.slice(0, 300)}` })}\n\n`);
       res.write("data: [DONE]\n\n");
       return res.end();
     }
@@ -234,45 +214,7 @@ app.post("/ask/stream", async (req, res) => {
   }
 });
 
-// الراوت القديم باقي شغال (JSON عادي) حتى ما يتعطل أي تطبيق قديم عندك
-app.post("/ask", async (req, res) => {
-  try {
-    if (!API_KEY) return res.json({ error: "OPENROUTER_API_KEY not set" });
-
-    const userText = lastUserText(req.body);
-    if (isDevQuestion(userText)) return res.json({ reply: DEV_ANSWER });
-
-    const lang = detectLanguage(userText);
-
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "MAi Bot",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: buildMessages(req.body, lang),
-        temperature: TEMPERATURE,
-        max_tokens: MAX_TOKENS,
-        stream: false,
-        provider: { sort: "throughput" },
-      }),
-    });
-
-    const data = await response.json();
-    if (!data.choices || !data.choices[0]) return res.json({ error: "Model error", details: data });
-
-    res.json({ reply: data.choices[0].message.content });
-  } catch (err) {
-    res.json({ error: err.message });
-  }
-});
-
-app.get("/health", (_req, res) => res.json({ ok: true, model: MODEL }));
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`MAi Bot running on port ${PORT} - model: ${MODEL} 🚀`);
+  console.log(`MAi Bot running on port ${PORT} 🚀`);
 });
