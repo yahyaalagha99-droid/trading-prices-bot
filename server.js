@@ -7,7 +7,6 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fetch from 'node-fetch'; // تأكد من توفرها أو استخدام fetch المدمج في Node
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,48 +28,22 @@ app.use(express.json({ limit: '1mb' }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 
 /* ================= الواجهة (Frontend) ================= */
-// إذا كانت الملفات في الجذر مباشرة، استخدم __dirname
 app.use(express.static(__dirname));
 
-/* ================= مسار الشات (Streaming API) ================= */
+/* ================= مسار الشات المؤقت للاختبار ================= */
 app.post('/ask/stream', async (req, res) => {
   try {
-    const { messages } = req.body;
-    
-    // استدعاء واجهة الذكاء الاصطناعي (مثلاً OpenAI أو Gemini أو أي مزود تستخدمه)
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: messages,
-        stream: true
-      })
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "خطأ من مزود الذكاء الاصطناعي" });
-    }
-
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    response.body.on('data', (chunk) => {
-      res.write(chunk);
-    });
-
-    response.body.on('end', () => {
-      res.write("data: [DONE]\n\n");
-      res.end();
-    });
-
+    // رد تجريبي مؤقت للتأكد من أن الاتصال ينجح وتصل الرسالة
+    res.write(`data: ${JSON.stringify({ token: "أهلاً بك! السيرفر يعمل بنجاح، جارٍ ربط الذكاء الاصطناعي..." })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'Server error' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
