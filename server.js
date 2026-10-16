@@ -11,7 +11,6 @@ app.use(express.json({ limit: "1mb" }));
 
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-// تم تغيير الموديل إلى موديل متاح ومستقر 100% على Groq
 const MODEL = "llama-3.1-8b-instant";
 
 app.use(express.static(__dirname));
@@ -207,7 +206,7 @@ app.post("/ask/stream", async (req, res) => {
     }
 
     await pipeStream(upstream.body, res);
-  } حدث (err) {
+  } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.write("data: [DONE]\n\n");
     res.end();
