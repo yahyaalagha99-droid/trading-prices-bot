@@ -8,18 +8,15 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-// قراءة المفتاح تلقائياً من Render Environment Variables
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// الموديل الرسمي السريع والمستقر
-const MODEL = "llama-3.1-8b-instant";
+// تم استخدام الموديل المعتمد لحسابك لتجنب خطأ 404 نهائياً
+const MODEL = "llama3-8b-8192";
 
-// توجيه الملفات الثابتة لتدعم مجلد Frontend والمجلد الرئيسي
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
 
-// توجيه المسار الرئيسي لفتح index.html الموجود داخل مجلد Frontend
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Frontend", "index.html"), (err) => {
     if (err) {
