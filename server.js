@@ -95,6 +95,7 @@ app.post("/ask/stream", async (req, res) => {
       body: JSON.stringify({
         model: MODEL,
         messages: payloadMessages,
+        max_tokens: 1000,
         stream: true,
       }),
     });
