@@ -8,16 +8,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
+// قراءة المفتاح تلقائياً من Render Environment Variables
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// ✅ قائمة الموديلات المتاحة (يجرّبها بالترتيب)
-// الترتيب: الأسرع أولاً، ثم الأقوى
-const MODELS = [
-  "llama-3.3-70b-versatile",   // الأسرع والأقوى (موصى به)
-  "llama-3.1-8b-instant",      // احتياطي قد يعمل إذا رجع
-  "meta-llama/llama-4-scout-17b-16e-instruct", // موديل جديد
-];
+// الموديل الرسمي السريع والمستقر
+const MODEL = "llama-3.1-8b-instant";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
@@ -30,9 +26,9 @@ app.get("/", (req, res) => {
   });
 });
 
-const MAX_HISTORY = 8;       // ← قلّلناه لسرعة أعلى
-const MAX_TOKENS = 700;      // ← قلّلناه قليلاً لسرعة أعلى
-const TEMPERATURE = 0.5;
+const MAX_HISTORY = 12;
+const MAX_TOKENS = 800;
+const TEMPERATURE = 0.4;
 const DEV_ANSWER = "المطور هو العبقري والمبدع Yahya.Kurdish 🚀";
 
 const KURDISH_SORANI_RE = /[\u0695\u06B5\u06C6\u06CE\u06D5\u06A4\u06AF]/;
@@ -112,7 +108,7 @@ function buildMessages(body, lang) {
   if (Array.isArray(messages) && messages.length) {
     const clean = messages
       .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 3000) }));
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
     return out.concat(clean.slice(-MAX_HISTORY));
   }
 
@@ -165,44 +161,6 @@ async function pipeStream(body, res) {
   res.end();
 }
 
-// ✅ دالة ذكية تجرّب الموديلات بالترتيب
-async function callGroqWithFallback(messages) {
-  let lastError = null;
-
-  for (const model of MODELS) {
-    try {
-      const upstream = await fetch(GROQ_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: TEMPERATURE,
-          max_tokens: MAX_TOKENS,
-          stream: true,
-        }),
-      });
-
-      if (upstream.ok && upstream.body) {
-        console.log(`✅ Using model: ${model}`);
-        return upstream;
-      }
-
-      const txt = await upstream.text().catch(() => "");
-      console.warn(`❌ Model ${model} failed (${upstream.status}): ${txt.slice(0, 100)}`);
-      lastError = `Model ${model} → ${upstream.status}`;
-    } catch (err) {
-      console.warn(`❌ Model ${model} threw: ${err.message}`);
-      lastError = err.message;
-    }
-  }
-
-  throw new Error(lastError || "All models failed");
-}
-
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
     return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
@@ -227,7 +185,28 @@ app.post("/ask/stream", async (req, res) => {
   const lang = detectLanguage(userText);
 
   try {
-    const upstream = await callGroqWithFallback(buildMessages(req.body, lang));
+    const upstream = await globalThis.fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: buildMessages(req.body, lang),
+        temperature: TEMPERATURE,
+        max_tokens: MAX_TOKENS,
+        stream: true,
+      }),
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      const txt = await upstream.text().catch(() => "");
+      res.write(`data: ${JSON.stringify({ error: `Model error ${upstream.status}:${txt.slice(0, 300)}` })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      return res.end();
+    }
+
     await pipeStream(upstream.body, res);
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
