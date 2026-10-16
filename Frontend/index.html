@@ -194,8 +194,6 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     if (answer) history.push({ role: "assistant", content: answer });
     else if (!botEl.textContent) botEl.textContent = "(ما وصل رد)";
 
-  } hasError => {
-    // تم الحفاظ على معالجة الأخطاء السليمة
   } catch (err) {
     botEl.textContent = "خطأ بالاتصال: " + err.message;
   }
