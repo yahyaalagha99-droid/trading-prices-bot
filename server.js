@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fetch from 'node-fetch';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,7 +19,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// مسار الشات الحقيقي للذكاء الاصطناعي
+// مسار الشات الحقيقي باستخدام fetch المدمج (بدون الحاجة لأي حزم إضافية)
 app.post('/ask/stream', async (req, res) => {
   try {
     const { messages } = req.body;
@@ -47,15 +46,17 @@ app.post('/ask/stream', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    response.body.on('data', (chunk) => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
       res.write(chunk);
-    });
+    }
 
-    response.body.on('end', () => {
-      res.write("data: [DONE]\n\n");
-      res.end();
-    });
-
+    res.end();
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error: ' + err.message });
