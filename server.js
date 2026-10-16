@@ -1,221 +1,217 @@
-import express from "express";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
+"""
+Module for predicting future prices using machine learning
+"""
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import MinMaxScaler
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Tuple
+import logging
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-// قراءة المفتاح تلقائياً من Render Environment Variables
-const API_KEY = process.env.GROQ_API_KEY;
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// الموديل الرسمي السريع والمستقر
-const MODEL = "llama-3.1-8b-instant";
-
-app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, "Frontend")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"), (err) => {
-    if (err) {
-      res.sendFile(path.join(__dirname, "Frontend", "index.html"));
-    }
-  });
-});
-
-const MAX_HISTORY = 12;
-const MAX_TOKENS = 800;
-const TEMPERATURE = 0.4;
-const DEV_ANSWER = "المطور هو العبقري والمبدع Yahya.Kurdish 🚀";
-
-const KURDISH_SORANI_RE = /[\u0695\u06B5\u06C6\u06CE\u06D5\u06A4\u06AF]/;
-const KURDISH_LATIN_RE = /[çêîşû]/i;
-const KURDISH_LATIN_WORDS_RE = /\b(kê|ez|tu|ew|çi|spas|kurdî|bêje)\b/i;
-const ARABIC_RE = /[\u0600-\u06FF]/;
-
-function detectLanguage(text = "") {
-  const t = String(text).trim();
-  if (!t) return "ar";
-  if (KURDISH_SORANI_RE.test(t)) return "ku-sorani";
-  if (KURDISH_LATIN_RE.test(t) || KURDISH_LATIN_WORDS_RE.test(t)) return "ku-latin";
-  if (ARABIC_RE.test(t)) return "ar";
-  return "en";
-}
-
-function languageRule(lang) {
-  switch (lang) {
-    case "ku-sorani":
-      return "LANGUAGE LOCK: وەڵامەکەت تەنها بە کوردی (سۆرانی) بێت.";
-    case "ku-latin":
-      return "LANGUAGE LOCK: Reply ONLY in Kurmanji Kurdish (Latin script).";
-    case "en":
-      return "LANGUAGE LOCK: Reply ONLY in English.";
-    default:
-      return "قيد اللغة: أجب الآن حصرياً بالعربية وبنفس لهجة المستخدم.";
-  }
-}
-
-function normalizeText(s = "") {
-  return String(s).toLowerCase()
-    .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")
-    .replace(/[\u0649\u06CC\u064A]/g, "\u064A")
-    .replace(/\u0629/g, "\u0647")
-    .replace(/[\u0624\u06C6\u06C7\u0648]/g, "\u0648")
-    .replace(/\u0626/g, "\u064A")
-    .replace(/[\u06A9\u0643]/g, "\u0643")
-    .replace(/[\u06BE\u06D5]/g, "\u0647")
-    .replace(/\u06AF/g, "\u0643")
-    .replace(/\u06A4/g, "\u0641")
-    .replace(/\s+/g, " ").trim();
-}
-
-const DEV_QUESTIONS = [
-  "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
-  "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
-  "who is your developer", "who created you", "who built you",
-].map(normalizeText);
-
-function isDevQuestion(text) {
-  const t = normalizeText(text);
-  return !!t && DEV_QUESTIONS.some((q) => t.includes(q));
-}
-
-function lastUserText(body) {
-  const { messages, message } = body || {};
-  if (Array.isArray(messages) && messages.length) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m && m.role === "user" && typeof m.content === "string") return m.content;
-    }
-    const last = messages[messages.length - 1];
-    return last && typeof last.content === "string" ? last.content : "";
-  }
-  return typeof message === "string" ? message : "";
-}
-
-const BASE_SYSTEM = `أنت MAi Bot، مساعد ذكي واحترافي، تم تطويره بواسطة المبدع Yahya.Kurdish.`;
-
-function buildMessages(body, lang) {
-  const { messages, message } = body || {};
-  const out = [
-    { role: "system", content: BASE_SYSTEM.trim() },
-    { role: "system", content: languageRule(lang) },
-  ];
-
-  if (Array.isArray(messages) && messages.length) {
-    const clean = messages
-      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
-    return out.concat(clean.slice(-MAX_HISTORY));
-  }
-
-  if (typeof message === "string") out.push({ role: "user", content: message });
-  return out;
-}
-
-function parseAndForward(rawLine, res) {
-  const line = rawLine.trim();
-  if (!line || line.startsWith(":")) return;
-  if (!line.startsWith("data:")) return;
-
-  const data = line.slice(5).trim();
-  if (!data || data === "[DONE]") return;
-
-  try {
-    const json = JSON.parse(data);
-    if (json.error) {
-      res.write(`data: ${JSON.stringify({ error: json.error.message || json.error })}\n\n`);
-      return;
-    }
-    const token = json?.choices?.[0]?.delta?.content || json?.choices?.[0]?.message?.content || "";
-    if (token) res.write(`data: ${JSON.stringify({ token })}\n\n`);
-  } catch {}
-}
-
-async function pipeStream(body, res) {
-  let buffer = "";
-  if (body && typeof body.getReader === "function") {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      for (const l of lines) parseAndForward(l, res);
-    }
-  } else {
-    for await (const chunk of body) {
-      buffer += chunk.toString("utf8");
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      for (const l of lines) parseAndForward(l, res);
-    }
-  }
-  if (buffer.trim()) parseAndForward(buffer, res);
-  res.write("data: [DONE]\n\n");
-  res.end();
-}
-
-app.post("/ask/stream", async (req, res) => {
-  if (!API_KEY) {
-    return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
-  }
-
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  res.write(": connected\n\n");
-
-  const userText = lastUserText(req.body);
-
-  if (isDevQuestion(userText)) {
-    res.write(`data: ${JSON.stringify({ token: DEV_ANSWER })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    return res.end();
-  }
-
-  const lang = detectLanguage(userText);
-
-  try {
-    const upstream = await globalThis.fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: buildMessages(req.body, lang),
-        temperature: TEMPERATURE,
-        max_tokens: MAX_TOKENS,
-        stream: true,
-      }),
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      const txt = await upstream.text().catch(() => "");
-      res.write(`data: ${JSON.stringify({ error: `Model error ${upstream.status}:${txt.slice(0, 300)}` })}\n\n`);
-      res.write("data: [DONE]\n\n");
-      return res.end();
-    }
-
-    await pipeStream(upstream.body, res);
-  } catch (err) {
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-    res.write("data: [DONE]\n\n");
-    res.end();
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`MAi Bot running on port ${PORT} 🚀`);
-});
+class PricePredictor:
+    """Predicts future prices based on historical data"""
+    
+    def __init__(self, model_type: str = "linear_regression"):
+        """
+        Initialize predictor
+        
+        Args:
+            model_type: Type of prediction model ('linear_regression', 'moving_average')
+        """
+        self.model_type = model_type
+        self.scaler = MinMaxScaler()
+        self.models = {}
+    
+    def predict_price(self, historical_prices: List[float], days_ahead: int = 7) -> Dict:
+        """
+        Predict future prices
+        
+        Args:
+            historical_prices: List of historical prices
+            days_ahead: Number of days to predict ahead
+        
+        Returns:
+            Dictionary with predictions and confidence
+        """
+        try:
+            if len(historical_prices) < 3:
+                return {'error': 'Need at least 3 historical data points'}
+            
+            if self.model_type == "linear_regression":
+                return self._predict_linear(historical_prices, days_ahead)
+            elif self.model_type == "moving_average":
+                return self._predict_moving_average(historical_prices, days_ahead)
+            else:
+                return {'error': 'Unknown model type'}
+        
+        except Exception as e:
+            logger.error(f"Error predicting price: {str(e)}")
+            return {'error': str(e)}
+    
+    def _predict_linear(self, prices: List[float], days_ahead: int) -> Dict:
+        """Linear regression based prediction"""
+        try:
+            # Prepare data
+            X = np.arange(len(prices)).reshape(-1, 1)
+            y = np.array(prices).reshape(-1, 1)
+            
+            # Normalize
+            X_scaled = X / len(prices)
+            y_scaler = MinMaxScaler()
+            y_scaled = y_scaler.fit_transform(y)
+            
+            # Train model
+            model = LinearRegression()
+            model.fit(X_scaled, y_scaled)
+            
+            # Predict
+            future_X = np.arange(len(prices), len(prices) + days_ahead).reshape(-1, 1)
+            future_X_scaled = future_X / len(prices)
+            future_y_scaled = model.predict(future_X_scaled)
+            
+            # Denormalize predictions
+            future_y = y_scaler.inverse_transform(future_y_scaled)
+            predictions = future_y.flatten().tolist()
+            
+            # Calculate trend
+            current_price = prices[-1]
+            avg_prediction = np.mean(predictions)
+            trend = "📈 UP" if avg_prediction > current_price else "📉 DOWN"
+            
+            # Calculate confidence (R² score)
+            confidence = min(100, max(0, abs(model.score(X_scaled, y_scaled) * 100)))
+            
+            return {
+                'predictions': predictions,
+                'trend': trend,
+                'confidence': confidence,
+                'current_price': current_price,
+                'predicted_avg': avg_prediction,
+                'change_percent': ((avg_prediction - current_price) / current_price * 100)
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in linear prediction: {str(e)}")
+            return {'error': str(e)}
+    
+    def _predict_moving_average(self, prices: List[float], days_ahead: int) -> Dict:
+        """Simple moving average based prediction"""
+        try:
+            prices_array = np.array(prices)
+            
+            # Calculate moving averages
+            ma_3 = np.convolve(prices_array, np.ones(3)/3, mode='valid')
+            ma_7 = np.convolve(prices_array, np.ones(7)/7, mode='valid') if len(prices) >= 7 else ma_3
+            
+            # Simple extrapolation
+            last_ma = ma_7[-1] if len(ma_7) > 0 else prices_array[-1]
+            trend_direction = prices_array[-1] - prices_array[-min(3, len(prices_array))]
+            
+            predictions = []
+            for i in range(days_ahead):
+                pred = last_ma + (trend_direction * (i + 1) / days_ahead)
+                predictions.append(float(pred))
+            
+            current_price = prices_array[-1]
+            avg_prediction = np.mean(predictions)
+            trend = "📈 UP" if avg_prediction > current_price else "📉 DOWN"
+            
+            confidence = 60  # Medium confidence for simple MA
+            
+            return {
+                'predictions': predictions,
+                'trend': trend,
+                'confidence': confidence,
+                'current_price': current_price,
+                'predicted_avg': avg_prediction,
+                'change_percent': ((avg_prediction - current_price) / current_price * 100)
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in MA prediction: {str(e)}")
+            return {'error': str(e)}
+    
+    def analyze_volatility(self, historical_prices: List[float]) -> Dict:
+        """
+        Analyze price volatility
+        
+        Args:
+            historical_prices: List of historical prices
+        
+        Returns:
+            Dictionary with volatility metrics
+        """
+        try:
+            prices_array = np.array(historical_prices)
+            
+            # Calculate returns
+            returns = np.diff(prices_array) / prices_array[:-1]
+            
+            # Calculate metrics
+            volatility = np.std(returns) * 100
+            daily_volatility = np.std(np.diff(prices_array)) 
+            
+            max_price = np.max(prices_array)
+            min_price = np.min(prices_array)
+            price_range = max_price - min_price
+            
+            return {
+                'volatility_percent': float(volatility),
+                'daily_volatility': float(daily_volatility),
+                'max_price': float(max_price),
+                'min_price': float(min_price),
+                'price_range': float(price_range),
+                'risk_level': self._get_risk_level(volatility)
+            }
+        
+        except Exception as e:
+            logger.error(f"Error analyzing volatility: {str(e)}")
+            return {'error': str(e)}
+    
+    @staticmethod
+    def _get_risk_level(volatility: float) -> str:
+        """Determine risk level based on volatility"""
+        if volatility < 2:
+            return "🟢 منخفض جداً (Very Low)"
+        elif volatility < 5:
+            return "🟢 منخفض (Low)"
+        elif volatility < 10:
+            return "🟡 متوسط (Medium)"
+        elif volatility < 20:
+            return "🔴 عالي (High)"
+        else:
+            return "🔴 عالي جداً (Very High)"
+    
+    def calculate_resistance_support(self, prices: List[float]) -> Dict:
+        """
+        Calculate support and resistance levels
+        
+        Args:
+            prices: Historical prices
+        
+        Returns:
+            Dictionary with support and resistance levels
+        """
+        try:
+            prices_array = np.array(prices)
+            
+            # Simple approach: use percentiles
+            support = float(np.percentile(prices_array, 25))
+            resistance = float(np.percentile(prices_array, 75))
+            current = float(prices_array[-1])
+            
+            return {
+                'support': support,
+                'resistance': resistance,
+                'current': current,
+                'distance_to_support': ((current - support) / current * 100),
+                'distance_to_resistance': ((resistance - current) / current * 100)
+            }
+        
+        except Exception as e:
+            logger.error(f"Error calculating levels: {str(e)}")
+            return {'error': str(e)}
