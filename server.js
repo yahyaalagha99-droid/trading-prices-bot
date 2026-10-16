@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,8 +10,9 @@ app.use(express.json({ limit: "1mb" }));
 
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-// هذا هو الموديل الأساسي المضمون 100% ويعمل على جميع حسابات Groq
-const MODEL = "llama3-8b-8192";
+
+// الموديل الحديث والمفعل حالياً على Groq
+const MODEL = "llama-3.1-8b-instant";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
