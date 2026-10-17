@@ -12,7 +12,6 @@ app.use(express.json({ limit: "10mb" }));
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// جلب المفتاح المخصص لـ OpenRouter
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -75,14 +74,15 @@ app.post("/ask/stream", async (req, res) => {
     return res.end();
   }
 
-  // حساب التاريخ والوقت الحقيقي لحظة إرسال الرسالة
+  // ضبط التوقيت المحلي بدقة تامة (توقيت بغداد/العراق أو المنطقة المحلية)
   const now = new Date();
-  const currentDate = now.toISOString().split('T')[0];
-  const currentTime = now.toLocaleTimeString('en-US', { timeZone: 'UTC' }) + " UTC";
+  const optionsTime = { timeZone: 'Asia/Baghdad', hour: '2-digit', minute: '2-digit', hour12: true };
+  const currentDate = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Baghdad' });
+  const currentTime = now.toLocaleTimeString('ar-IQ', optionsTime);
+  const currentDayName = now.toLocaleDateString('ar-IQ', { timeZone: 'Asia/Baghdad', weekday: 'long' });
 
-  // تعليمات النظام محدثة بالتاريخ والوقت الحقيقيين وإلزام اللغة
-  const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
-Current real-world date is ${currentDate} and current time is ${currentTime}.
+  const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}. 
+Current real-world info: Today is ${currentDayName}, date is ${currentDate}, and local time is ${currentTime}.
 CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
 - If the user writes in Arabic, respond ONLY in natural Arabic.
 - If the user writes in Kurdish, respond ONLY in Kurdish.
