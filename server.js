@@ -74,12 +74,12 @@ app.post("/ask/stream", async (req, res) => {
     return res.end();
   }
 
-  // ضبط التوقيت المحلي بدقة تامة (توقيت بغداد/العراق أو المنطقة المحلية)
+  // ضبط التوقيت بدقة على المنطقة الزمنية المحلية (Europe/Berlin)
   const now = new Date();
-  const optionsTime = { timeZone: 'Asia/Baghdad', hour: '2-digit', minute: '2-digit', hour12: true };
-  const currentDate = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Baghdad' });
-  const currentTime = now.toLocaleTimeString('ar-IQ', optionsTime);
-  const currentDayName = now.toLocaleDateString('ar-IQ', { timeZone: 'Asia/Baghdad', weekday: 'long' });
+  const optionsTime = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: true };
+  const currentDate = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
+  const currentTime = now.toLocaleTimeString('ar-EG', optionsTime);
+  const currentDayName = now.toLocaleDateString('ar-EG', { timeZone: 'Europe/Berlin', weekday: 'long' });
 
   const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}. 
 Current real-world info: Today is ${currentDayName}, date is ${currentDate}, and local time is ${currentTime}.
