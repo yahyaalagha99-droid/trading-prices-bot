@@ -54,15 +54,6 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-// تعديل تعليمات النظام لإجبار البوت على التحدث بنفس لغة المستخدم دائماً
-const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
-CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
-- If the user writes in Arabic, respond ONLY in natural Arabic.
-- If the user writes in Kurdish, respond ONLY in Kurdish.
-- If the user writes in English, respond ONLY in English.
-- If the user writes in German, respond ONLY in German.
-Do not mix languages or offer translations unless explicitly asked.`;
-
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
     return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set in Render" });
@@ -83,6 +74,21 @@ app.post("/ask/stream", async (req, res) => {
     res.write("data: [DONE]\n\n");
     return res.end();
   }
+
+  // حساب التاريخ والوقت الحقيقي لحظة إرسال الرسالة
+  const now = new Date();
+  const currentDate = now.toISOString().split('T')[0];
+  const currentTime = now.toLocaleTimeString('en-US', { timeZone: 'UTC' }) + " UTC";
+
+  // تعليمات النظام محدثة بالتاريخ والوقت الحقيقيين وإلزام اللغة
+  const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
+Current real-world date is ${currentDate} and current time is ${currentTime}.
+CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
+- If the user writes in Arabic, respond ONLY in natural Arabic.
+- If the user writes in Kurdish, respond ONLY in Kurdish.
+- If the user writes in English, respond ONLY in English.
+- If the user writes in German, respond ONLY in German.
+Do not mix languages or offer translations unless explicitly asked.`;
 
   const payloadMessages = [
     { role: "system", content: BASE_SYSTEM },
