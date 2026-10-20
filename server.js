@@ -2,9 +2,16 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import { APP_CONFIG } from "./botConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables from the usual .env file and from the repo's
+// legacy weird-named file (". env") if it exists.
+dotenv.config();
+dotenv.config({ path: path.join(__dirname, ". env") });
+
 const app = express();
 
 app.use(cors());
