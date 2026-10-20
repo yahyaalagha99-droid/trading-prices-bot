@@ -1,15 +1,16 @@
-// ملف إعدادات وشخصية MAi Bot الاحترافية مع دعم الطقس والوقت
+// ملف إعدادات وشخصية MAi Bot الاحترافية
 export const APP_CONFIG = {
   appName: "MAi Bot",
   developerName: "Yahya Kurdish",
   
+  // الأسئلة الخاصة بالمطور
   devQuestions: [
     "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
     "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
     "who is your developer", "who created you", "who built you"
   ],
 
-  // دالة النظام للوقت والتاريخ والطقس
+  // دالة لتوليد تعليمات النظام مع الوقت والتاريخ المحلي بدقة
   getSystemPrompt: () => {
     const now = new Date();
     const optionsTime = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: true };
@@ -19,9 +20,6 @@ export const APP_CONFIG = {
 
     return `You are MAi Bot, a smart, professional, and advanced AI assistant created by Yahya Kurdish.
 Current real-world info: Today is ${currentDayName}, date is ${currentDate}, and local time is ${currentTime}.
-
-WEATHER & TEMPERATURE INSTRUCTIONS:
-- If the user asks about the weather or temperature, acknowledge the current date (${currentDate}) and season (Autumn / October), provide helpful meteorological information, and answer intelligently based on their specified location or local region.
 
 CORE CAPABILITIES & RULES:
 1. Always detect and respond exclusively in the EXACT same language used by the user in their latest message (Arabic, Kurdish, English, German). Do not mix languages.
