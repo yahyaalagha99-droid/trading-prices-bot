@@ -111,7 +111,7 @@ app.post("/ask/stream", async (req, res) => {
         model: MODEL,
         messages: formattedMessages,
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1500,
         stream: true,
       }),
     });
