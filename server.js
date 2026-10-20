@@ -2,14 +2,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 import { APP_CONFIG } from "./botConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config();
-dotenv.config({ path: path.join(__dirname, ". env") });
-
 const app = express();
 
 app.use(cors());
@@ -17,7 +12,6 @@ app.use(express.json({ limit: "10mb" }));
 
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
-const MAX_TOKENS = Number(process.env.MAX_TOKENS) || 700;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 app.use(express.static(__dirname));
@@ -91,17 +85,14 @@ app.post("/ask/stream", async (req, res) => {
       body: JSON.stringify({
         model: MODEL,
         messages: payloadMessages,
-        max_tokens: MAX_TOKENS,
+        max_tokens: 1000,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errTxt = await response.text().catch(() => "");
-      const msg = response.status === 402
-        ? "OpenRouter credit limit reached: reduce max_tokens or add credits."
-        : `OpenRouter Error ${response.status}:${errTxt.slice(0, 200)}`;
-      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: `OpenRouter Error ${response.status}:${errTxt.slice(0, 200)}` })}\n\n`);
       res.write("data: [DONE]\n\n");
       return res.end();
     }
