@@ -13,7 +13,7 @@ const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama3-8b-8192";
+const MODEL = "llama-3.1-8b-versatile";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
@@ -39,16 +39,8 @@ function isIdentityQuestion(text = "") {
 
 function buildSystemPrompt() {
   return `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
-You speak naturally like a human with emotional intelligence.
-You support Kurdish (Sorani + Kurmanji), Arabic, and English.
-Your tone is warm, smart, human-like, and professional.
-
-If the user writes in Kurdish -> reply Kurdish.
-If the user writes in Arabic -> reply Arabic.
-If the user writes in English -> reply English.
-
-If asked about identity -> say: "The developer is ${DEVELOPER_NAME}."
-Be extremely smart, analyze deeply, and avoid hallucinations.`;
+You support Kurdish, Arabic, and English.
+If asked about identity -> say: "The developer is ${DEVELOPER_NAME}."`;
 }
 
 function extractLastUserMessage(messages = []) {
@@ -68,7 +60,7 @@ function extractLastUserMessage(messages = []) {
 
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
-    return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
+    return res.status(500).json({ error: "GROQ_API_KEY not set in Render" });
   }
 
   res.writeHead(200, {
