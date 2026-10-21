@@ -13,12 +13,12 @@ app.use(express.json({ limit: "10mb" }));
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// مفتاح Groq
+// 🔥 مفتاح Groq
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
-// إعدادات الواجهة
+// 🔥 تقديم ملفات الواجهة
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
 
@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// أسئلة المطور
+// 🔥 أسئلة المطور
 const DEV_QUESTIONS = [
   "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
   "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
@@ -57,7 +57,7 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-// النظام الأساسي
+// 🔥 النظام الأساسي
 const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
 CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
 - If the user writes in Arabic, respond ONLY in natural Arabic.
@@ -66,7 +66,7 @@ CRITICAL RULE: Always detect and respond exclusively in the EXACT same language 
 - If the user writes in German, respond ONLY in German.
 Do not mix languages or offer translations unless explicitly asked.`;
 
-// المسار الرئيسي
+// 🔥 المسار الرئيسي
 app.post("/ask/stream", async (req, res) => {
   const incomingMessages = req.body?.messages || [];
   const lastText = extractLastUserText(incomingMessages);
@@ -113,6 +113,7 @@ app.post("/ask/stream", async (req, res) => {
   }
 });
 
+// 🔥 تشغيل السيرفر
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`${APP_NAME} running on port ${PORT} 🚀`);
