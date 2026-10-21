@@ -13,7 +13,6 @@ app.use(express.json({ limit: "10mb" }));
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// مفتاح Groq من Render فقط
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
