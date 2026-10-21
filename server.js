@@ -13,7 +13,7 @@ const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.1-8b-versatile";
+const MODEL = "openai/gpt-oss-20b";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
