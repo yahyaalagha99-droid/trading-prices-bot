@@ -6,7 +6,7 @@ const router = express.Router();
 const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
 const API_KEY = process.env.GROQ_API_KEY;
-const MODEL = "llama-3.1-8b-versatile";
+const MODEL = "openai/gpt-oss-20b";
 
 const client = new Groq({
   apiKey: API_KEY
