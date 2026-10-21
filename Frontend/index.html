@@ -1,442 +1,154 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#090812">
-<title>My Ai Bot</title>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MAi Bot</title>
 <style>
-:root {
-  --bg: #090812;
-  --panel: #12111f;
-  --purple: #8b5cf6;
-  --cyan: #22d3ee;
-  --text: #f5f3ff;
-  --muted: #a6a2bd;
-  --border: #29243d;
-}
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at top, #21153d 0%, transparent 48%),
-    var(--bg);
-  color: var(--text);
-  font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
-}
-
-header {
-  padding: 15px 17px;
-  background: rgba(12, 10, 24, .94);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 25px #0003;
-}
-
-.logo {
-  width: 45px;
-  height: 45px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  font-size: 23px;
-  background: linear-gradient(135deg, var(--purple), var(--cyan));
-  box-shadow: 0 0 22px #8b5cf644;
-}
-
-.brand { flex: 1; min-width: 0; }
-.brand h1 { margin: 0; font-size: 18px; letter-spacing: .3px; }
-.brand p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
-
-.status {
-  font-size: 11px;
-  color: #67e8a5;
-  white-space: nowrap;
-}
-.status::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #34d399;
-  margin-left: 5px;
-}
-
-#chat {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 20px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  scroll-behavior: smooth;
-}
-
-.welcome {
-  margin: auto 0;
-  text-align: center;
-  padding: 24px 12px;
-}
-.welcome-icon {
-  font-size: 42px;
-  margin-bottom: 10px;
-  filter: drop-shadow(0 0 18px #8b5cf666);
-}
-.welcome h2 { font-size: 22px; margin: 8px 0; }
-.welcome p {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.9;
-  margin: 8px auto;
-  max-width: 300px;
-}
-
-.msg {
-  max-width: 88%;
-  padding: 12px 15px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  line-height: 1.9;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-}
-.user {
-  align-self: flex-start;
-  background: linear-gradient(135deg, #5130a0, #30205c);
-  border-color: #7650c4;
-  border-bottom-left-radius: 5px;
-}
-.bot {
-  align-self: flex-end;
-  background: linear-gradient(145deg, #171525, #111522);
-  border-color: #373052;
-  border-bottom-right-radius: 5px;
-}
-.msg img {
-  display: block;
-  max-width: 100%;
-  max-height: 260px;
-  margin-top: 9px;
-  border-radius: 12px;
-}
-.msg a { color: var(--cyan); }
-
-.composer {
-  padding: 12px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  background: rgba(13, 11, 25, .97);
-  border-top: 1px solid var(--border);
-}
-#image-preview-container {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-#image-preview-container img {
-  height: 42px;
-  max-width: 90px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-.input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-#q {
-  flex: 1;
-  min-width: 0;
-  height: 47px;
-  padding: 0 13px;
-  color: white;
-  background: #171525;
-  border: 1px solid #373052;
-  border-radius: 14px;
-  outline: none;
-  font: inherit;
-  font-size: 14px;
-}
-#q:focus {
-  border-color: var(--purple);
-  box-shadow: 0 0 0 2px #8b5cf622;
-}
-#q::placeholder { color: #88839e; }
-
-.icon-btn, #send {
-  min-width: 43px;
-  height: 45px;
-  border: 1px solid #373052;
-  border-radius: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: white;
-  background: #1b1830;
-  font-size: 19px;
-}
-.icon-btn:hover { background: #30264c; }
-#send {
-  min-width: 75px;
-  padding: 0 13px;
-  background: linear-gradient(135deg, #8b5cf6, #5b36c7);
-  border: none;
-  font-size: 13px;
-  font-weight: 700;
-}
-#send:disabled { opacity: .55; cursor: wait; }
-#mic-btn.recording { background: #b91c1c; }
-#file-input { display: none; }
-#clear-image {
-  padding: 5px 9px;
-  background: #35202d;
-  border: 1px solid #71364d;
-  border-radius: 8px;
-  color: #ffb4c7;
-}
-
-.footer {
-  text-align: center;
-  color: #77718e;
-  font-size: 10px;
-  padding-top: 9px;
-}
-.footer strong { color: #b5a0ff; font-weight: 600; }
-
-@media (min-width: 700px) {
-  header { padding-right: max(20px, calc((100% - 850px)/2)); }
-  #chat { width: 100%; max-width: 850px; margin: 0 auto; width: 100%; }
-  .composer-inner { max-width: 850px; margin: auto; }
-}
+  body { font-family: system-ui, "Segoe UI", Tahoma, sans-serif; background:#0f1117; color:#e8e8e8;
+         margin:0; display:flex; flex-direction:column; height:100vh; }
+  header { padding:14px 18px; background:#171a23; font-weight:700; }
+  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:80%; padding:10px 14px; border-radius:14px; line-height:1.7; white-space:pre-wrap; word-wrap: break-word; }
+  .user { align-self:flex-start; background:#2563eb; }
+  .bot  { align-self:flex-end; background:#1f2430; }
+  .preview-img { max-width: 200px; border-radius: 8px; margin-top: 5px; display: block; }
+  
+  form { display:flex; flex-direction:column; gap:8px; padding:12px; background:#171a23; border-top: 1px solid #2a2f3a; }
+  .input-row { display: flex; gap: 8px; align-items: center; }
+  input[type="text"] { flex:1; padding:12px; border-radius:10px; border:1px solid #2a2f3a; background:#0f1117; color:#fff; outline: none; }
+  button { padding:12px 20px; border:0; border-radius:10px; background:#2563eb; color:#fff; font-weight:700; cursor:pointer; }
+  button:hover { background: #1d4ed8; }
+  button.recording { background: #dc3545; }
+  
+  #file-input { display: none; }
+  .icon-btn { background: #2a2f3a; padding: 10px 14px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .icon-btn:hover { background: #374151; }
+  #image-preview-container { display: flex; align-items: center; gap: 10px; }
 </style>
 </head>
-
 <body>
-<header>
-  <div class="logo">✦</div>
-  <div class="brand">
-    <h1>My Ai Bot</h1>
-    <p>Developed by Yahya.Kurdish</p>
-  </div>
-  <div class="status">جاهز</div>
-</header>
+<header>MAi Bot</header>
+<div id="chat"></div>
 
-<main id="chat" aria-live="polite">
-  <section class="welcome" id="welcome">
-    <div class="welcome-icon">✧</div>
-    <h2>أهلًا بك في My Ai Bot</h2>
-    <p>مساعدك الذكي، جاهز للدردشة والإجابة عن أسئلتك.</p>
-    <p>اكتب رسالتك بالأسفل وابدأ المحادثة ✨</p>
-  </section>
-</main>
+<form id="f">
+  <div id="image-preview-container"></div>
+  <div class="input-row">
+    <!-- زر رفع صورة -->
+    <label for="file-input" class="icon-btn" title="إرفاق صورة">📷</label>
+    <input type="file" id="file-input" accept="image/*">
 
-<form id="f" class="composer">
-  <div class="composer-inner">
-    <div id="image-preview-container"></div>
-    <div class="input-row">
-      <label for="file-input" class="icon-btn" title="إرفاق صورة">📎</label>
-      <input type="file" id="file-input" accept="image/*">
+    <!-- زر تسجيل صوتي -->
+    <button type="button" id="mic-btn" class="icon-btn" title="تسجيل صوتي">🎙️</button>
 
-      <button type="button" id="mic-btn" class="icon-btn"
-        title="تسجيل صوتي" aria-label="تسجيل صوتي">🎙️</button>
-
-      <input id="q" type="text" autocomplete="off"
-        placeholder="اكتب رسالتك هنا..." aria-label="رسالتك">
-
-      <button id="send" type="submit">إرسال ↑</button>
-    </div>
-    <div class="footer">
-      مدعوم بتقنية الذكاء الاصطناعي · <strong>Yahya.Kurdish</strong>
-    </div>
+    <!-- حقل النص -->
+    <input id="q" autocomplete="off" placeholder="اكتب رسالتك..." />
+    <button type="submit">إرسال</button>
   </div>
 </form>
 
 <script>
-"use strict";
-
-const chat = document.getElementById("chat");
+const chat  = document.getElementById("chat");
 const input = document.getElementById("q");
 const fileInput = document.getElementById("file-input");
 const micBtn = document.getElementById("mic-btn");
-const sendBtn = document.getElementById("send");
-const preview = document.getElementById("image-preview-container");
+const imagePreviewContainer = document.getElementById("image-preview-container");
 
 let history = [];
 let selectedImageBase64 = null;
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
-let sending = false;
 
-function scrollChat() {
-  chat.scrollTop = chat.scrollHeight;
-}
-
-function addBubble(text, cls) {
-  const d = document.createElement("div");
-  d.className = "msg " + cls;
-  d.textContent = text;
-  chat.appendChild(d);
-  scrollChat();
-  return d;
-}
-
-function addUserMessage(text, image) {
-  const d = document.createElement("div");
-  d.className = "msg user";
-
-  if (text) {
-    const span = document.createElement("div");
-    span.textContent = text;
-    d.appendChild(span);
+// معالجة اختيار الصورة
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      selectedImageBase64 = evt.target.result;
+      imagePreviewContainer.innerHTML = `
+        <span style="font-size: 12px; color: #aaa;">صورة محددة:</span>
+        <img src="${selectedImageBase64}" style="height: 35px; border-radius: 4px;">
+        <button type="button" onclick="clearImage()" style="padding: 2px 6px; background: #dc3545; font-size: 10px;">حذف</button>
+      `;
+    };
+    reader.readAsDataURL(file);
   }
-
-  if (image) {
-    const img = document.createElement("img");
-    img.src = image;
-    img.alt = "الصورة المرفقة";
-    d.appendChild(img);
-  }
-
-  chat.appendChild(d);
-  scrollChat();
-}
-
-fileInput.addEventListener("change", function () {
-  const file = fileInput.files && fileInput.files[0];
-  if (!file) return;
-
-  if (!file.type.startsWith("image/")) {
-    alert("اختر ملف صورة من فضلك.");
-    fileInput.value = "";
-    return;
-  }
-
-  if (file.size > 8 * 1024 * 1024) {
-    alert("حجم الصورة كبير. اختر صورة أصغر من 8 ميغابايت.");
-    fileInput.value = "";
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function (evt) {
-    selectedImageBase64 = evt.target.result;
-    preview.replaceChildren();
-
-    const label = document.createElement("span");
-    label.textContent = "الصورة:";
-    const img = document.createElement("img");
-    img.src = selectedImageBase64;
-    img.alt = "معاينة الصورة";
-
-    const clear = document.createElement("button");
-    clear.type = "button";
-    clear.id = "clear-image";
-    clear.textContent = "حذف";
-    clear.addEventListener("click", clearImage);
-
-    preview.append(label, img, clear);
-  };
-  reader.readAsDataURL(file);
 });
 
 function clearImage() {
   selectedImageBase64 = null;
-  fileInput.value = "";
-  preview.replaceChildren();
+  fileInput.value = '';
+  imagePreviewContainer.innerHTML = '';
 }
 
-micBtn.addEventListener("click", async function () {
+// معالجة المايكروفون (التسجيل الصوتي)
+micBtn.addEventListener('click', async () => {
   if (!isRecording) {
     try {
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia ||
-          !window.MediaRecorder) {
-        alert("التسجيل الصوتي غير مدعوم في هذا المتصفح.");
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true
-      });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
 
-      mediaRecorder.ondataavailable = function (event) {
-        if (event.data.size > 0) audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = function () {
-        stream.getTracks().forEach(track => track.stop());
-        addBubble("🎙️ تم تسجيل رسالة صوتية على الجهاز.", "user");
-        addBubble(
-          "التسجيل الصوتي المحلي لا يُرسل إلى الذكاء الاصطناعي في هذه النسخة.",
-          "bot"
-        );
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        addBubble("🎙️ [تم تسجيل رسالة صوتية]", "user");
+        addBubble("⚠️ تم التقاط الصوت محلياً بنجاح.", "bot");
       };
 
       mediaRecorder.start();
       isRecording = true;
-      micBtn.classList.add("recording");
-      micBtn.textContent = "🛑";
+      micBtn.classList.add('recording');
+      micBtn.innerText = '🛑';
     } catch (err) {
-      alert("اسمح للمتصفح باستخدام المايكروفون ثم حاول مجددًا.");
+      alert('يرجى السماح بالوصول إلى المايكرفون من متصفح كروم.');
     }
-  } else if (mediaRecorder && mediaRecorder.state !== "inactive") {
+  } else {
     mediaRecorder.stop();
     isRecording = false;
-    micBtn.classList.remove("recording");
-    micBtn.textContent = "🎙️";
+    micBtn.classList.remove('recording');
+    micBtn.innerText = '🎙️';
   }
 });
 
-document.getElementById("f").addEventListener("submit", async function (e) {
+// تنشئ فقاعة وتسوها بالشات وترجّع العنصر
+function addBubble(text, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.innerHTML = text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (sending) return;
-
   const text = input.value.trim();
-  const currentImage = selectedImageBase64;
+  if (!text && !selectedImageBase64) return;
 
-  if (!text && !currentImage) return;
+  let userDisplayContent = text;
+  if (selectedImageBase64) {
+    userDisplayContent += `<br><img src="${selectedImageBase64}" class="preview-img">`;
+  }
 
-  document.getElementById("welcome")?.remove();
   input.value = "";
+  const currentImage = selectedImageBase64;
   clearImage();
 
-  addUserMessage(text, currentImage);
+  addBubble(userDisplayContent, "user");                
+  const botEl = addBubble("", "bot");     
 
-  const botEl = addBubble("جارٍ التفكير...", "bot");
-  const userContent = currentImage
-    ? [
-        { type: "text", text: text || "ما هذا في الصورة؟" },
-        { type: "image_url", image_url: { url: currentImage } }
-      ]
-    : text;
-
-  history.push({ role: "user", content: userContent });
-
-  sending = true;
-  sendBtn.disabled = true;
+  // إرسال البيانات بالصيغة المتوافقة
+  history.push({ 
+    role: "user", 
+    content: currentImage ? [
+      { type: "text", text: text || "ما هذا في الصورة؟" },
+      { type: "image_url", image_url: { url: currentImage } }
+    ] : text 
+  });
 
   try {
-    // المسار الأصلي للسيرفر، بدون تغييره.
     const res = await fetch("/ask/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -444,65 +156,46 @@ document.getElementById("f").addEventListener("submit", async function (e) {
     });
 
     if (!res.ok || !res.body) {
-      botEl.textContent = "تعذّر الرد من السيرفر. رمز الخطأ: " + res.status;
-      history.pop();
+      botEl.textContent = "خطأ بالسيرفر: " + res.status;
       return;
     }
 
-    const reader = res.body.getReader();
+    const reader  = res.body.getReader();   
     const decoder = new TextDecoder();
     let buffer = "";
     let answer = "";
-    let streamError = "";
 
     while (true) {
-      const result = await reader.read();
-      if (result.done) break;
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      buffer += decoder.decode(result.value, { stream: true });
+      buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      buffer = lines.pop();                 
 
       for (const raw of lines) {
         const line = raw.trim();
         if (!line.startsWith("data:")) continue;
-
         const payload = line.slice(5).trim();
-        if (payload === "[DONE]") continue;
+        if (payload === "[DONE]") { buffer = ""; break; }
 
         try {
           const obj = JSON.parse(payload);
           if (obj.token) {
             answer += obj.token;
-            botEl.textContent = answer;
-            scrollChat();
+            botEl.textContent = answer;     
+            chat.scrollTop = chat.scrollHeight;
           }
-          if (obj.error) {
-            streamError = String(obj.error);
-            botEl.textContent = "خطأ: " + streamError;
-          }
-        } catch (_) {
-          // تجاهل أجزاء البث غير الصالحة كـ JSON.
-        }
+          if (obj.error) botEl.textContent = "خطأ: " + obj.error;
+        } catch { /* تجاهل */ }
       }
     }
 
-    if (answer) {
-      history.push({ role: "assistant", content: answer });
-    } else if (streamError) {
-      history.pop();
-    } else if (!botEl.textContent ||
-               botEl.textContent === "جارٍ التفكير...") {
-      botEl.textContent = "لم يصل رد من السيرفر. حاول مرة أخرى.";
-      history.pop();
-    }
+    if (answer) history.push({ role: "assistant", content: answer });
+    else if (!botEl.textContent) botEl.textContent = "(ما وصل رد)";
+
   } catch (err) {
     botEl.textContent = "خطأ بالاتصال: " + err.message;
-    history.pop();
-  } finally {
-    sending = false;
-    sendBtn.disabled = false;
-    input.focus();
   }
 });
 </script>
