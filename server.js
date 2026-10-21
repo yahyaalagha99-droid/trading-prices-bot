@@ -13,10 +13,8 @@ app.use(express.json({ limit: "10mb" }));
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// 🔥 استخدم مفتاح Groq حتى لو .env يحتوي مفتاح OpenRouter
-// المفتاح الحقيقي لازم يكون داخل Render فقط
 const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY
+  apiKey: process.env.GROQ_API_KEY
 });
 
 app.use(express.static(__dirname));
