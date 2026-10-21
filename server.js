@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import Groq from "groq-sdk";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -13,12 +12,11 @@ app.use(express.json({ limit: "10mb" }));
 const APP_NAME = "MAi Bot";
 const DEVELOPER_NAME = "Yahya Kurdish";
 
-// 🔥 مفتاح Groq
-const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+// جلب المفتاح المخصص لـ OpenRouter
+const API_KEY = process.env.OPENROUTER_API_KEY;
+const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// 🔥 تقديم ملفات الواجهة
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
 
@@ -30,7 +28,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// 🔥 أسئلة المطور
 const DEV_QUESTIONS = [
   "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
   "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
@@ -57,19 +54,13 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-// 🔥 النظام الأساسي
-const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
-CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
-- If the user writes in Arabic, respond ONLY in natural Arabic.
-- If the user writes in Kurdish, respond ONLY in Kurdish.
-- If the user writes in English, respond ONLY in English.
-- If the user writes in German, respond ONLY in German.
-Do not mix languages or offer translations unless explicitly asked.`;
+const BASE_SYSTEM = `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
+You speak naturally with high intelligence and support Kurdish, Arabic, and English.`;
 
-// 🔥 المسار الرئيسي
 app.post("/ask/stream", async (req, res) => {
-  const incomingMessages = req.body?.messages || [];
-  const lastText = extractLastUserText(incomingMessages);
+  if (!API_KEY) {
+    return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set in Render" });
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
@@ -77,6 +68,9 @@ app.post("/ask/stream", async (req, res) => {
     Connection: "keep-alive",
   });
   res.write(": connected\n\n");
+
+  const incomingMessages = req.body?.messages || [];
+  const lastText = extractLastUserText(incomingMessages);
 
   if (isDevQuestion(lastText)) {
     res.write(`data: ${JSON.stringify({ token: `المطور هو العبقري والمبدع Yahya Kurdish 🚀` })}\n\n`);
@@ -90,17 +84,56 @@ app.post("/ask/stream", async (req, res) => {
   ];
 
   try {
-    const completion = await client.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: payloadMessages,
-      stream: true,
-      max_tokens: 500
+    const response = await globalThis.fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${API_KEY}`,
+        "HTTP-Referer": "https://render.com",
+        "X-Title": APP_NAME,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: payloadMessages,
+        max_tokens: 1000,
+        stream: true,
+      }),
     });
 
-    for await (const chunk of completion) {
-      const token = chunk?.choices?.[0]?.delta?.content || "";
-      if (token) {
-        res.write(`data: ${JSON.stringify({ token })}\n\n`);
+    if (!response.ok) {
+      const errTxt = await response.text().catch(() => "");
+      res.write(`data: ${JSON.stringify({ error: `OpenRouter Error ${response.status}:${errTxt.slice(0, 200)}` })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      return res.end();
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith(":")) continue;
+        if (line.startsWith("data:")) {
+          const payload = line.slice(5).trim();
+          if (payload === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(payload);
+            const token = parsed?.choices?.[0]?.delta?.content || "";
+            if (token) {
+              res.write(`data: ${JSON.stringify({ token })}\n\n`);
+            }
+          } catch {}
+        }
       }
     }
 
@@ -113,7 +146,6 @@ app.post("/ask/stream", async (req, res) => {
   }
 });
 
-// 🔥 تشغيل السيرفر
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`${APP_NAME} running on port ${PORT} 🚀`);
