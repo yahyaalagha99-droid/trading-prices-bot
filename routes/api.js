@@ -6,7 +6,7 @@ const router = express.Router();
 const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
 const API_KEY = process.env.GROQ_API_KEY;
-const MODEL = "llama3-8b-8192";
+const MODEL = "llama-3.1-8b-versatile";
 
 const client = new Groq({
   apiKey: API_KEY
@@ -25,7 +25,7 @@ function isIdentityQuestion(text = "") {
 
 function buildSystemPrompt() {
   return `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
-You support Kurdish (Sorani + Kurmanji), Arabic, and English.
+You support Kurdish, Arabic, and English.
 If asked about identity -> say: "The developer is ${DEVELOPER_NAME}."`;
 }
 
