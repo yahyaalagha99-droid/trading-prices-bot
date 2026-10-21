@@ -9,16 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// إعدادات التطبيق والمطور
 const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
 const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
-// نموذج Groq المستقر والسريع
 const MODEL = "llama-3.1-8b-instant";
 
-// توجيه الملفات الثابتة لتقرأ مجلد Frontend والمجلد الرئيسي
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
 
@@ -30,7 +26,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// الكشف عن أسئلة الهوية واسم المطور
 const DEV_QUESTIONS = [
   "who created you", "who made you", "who is your developer", "who built you",
   "منو صانعك", "منو المطور", "من هو المطور", "من هو صانعك",
@@ -71,7 +66,6 @@ function extractLastUserMessage(messages = []) {
   return "";
 }
 
-// المسار الرئيسي المطلوب للواجهة /ask/stream
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
     return res.status(500).json({ error: "GROQ_API_KEY environment variable not set in Render" });
@@ -87,14 +81,12 @@ app.post("/ask/stream", async (req, res) => {
   const messages = req.body?.messages || [];
   const lastUserText = extractLastUserMessage(messages);
 
-  // إذا كان السؤال عن المطور
   if (isIdentityQuestion(lastUserText)) {
     res.write(`data: ${JSON.stringify({ token: `The developer is ${DEVELOPER_NAME}.` })}\n\n`);
     res.write("data: [DONE]\n\n");
     return res.end();
   }
 
-  // بناء القائمة مع الـ System Prompt
   const formattedMessages = [
     { role: "system", content: buildSystemPrompt() },
     ...messages
