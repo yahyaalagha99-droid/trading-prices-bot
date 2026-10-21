@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import { APP_CONFIG } from "./botConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -9,10 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-const APP_NAME = "MAi Bot";
-const DEVELOPER_NAME = "Yahya Kurdish";
-
-// جلب المفتاح المخصص لـ OpenRouter
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -28,15 +25,9 @@ app.get("/", (req, res) => {
   });
 });
 
-const DEV_QUESTIONS = [
-  "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
-  "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
-  "who is your developer", "who created you", "who built you",
-];
-
 function isDevQuestion(text = "") {
   const t = String(text).toLowerCase().trim();
-  return DEV_QUESTIONS.some((q) => t.includes(q));
+  return APP_CONFIG.devQuestions.some((q) => t.includes(q));
 }
 
 function extractLastUserText(messages = []) {
@@ -54,12 +45,9 @@ function extractLastUserText(messages = []) {
   return "";
 }
 
-const BASE_SYSTEM = `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
-You speak naturally with high intelligence and support Kurdish, Arabic, and English.`;
-
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
-    return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set in Render" });
+    return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set" });
   }
 
   res.writeHead(200, {
@@ -73,10 +61,12 @@ app.post("/ask/stream", async (req, res) => {
   const lastText = extractLastUserText(incomingMessages);
 
   if (isDevQuestion(lastText)) {
-    res.write(`data: ${JSON.stringify({ token: `المطور هو العبقري والمبدع Yahya Kurdish 🚀` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ token: `المطور هو العبقري والمبدع ${APP_CONFIG.developerName} 🚀` })}\n\n`);
     res.write("data: [DONE]\n\n");
     return res.end();
   }
+
+  const BASE_SYSTEM = APP_CONFIG.getSystemPrompt();
 
   const payloadMessages = [
     { role: "system", content: BASE_SYSTEM },
@@ -90,7 +80,7 @@ app.post("/ask/stream", async (req, res) => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${API_KEY}`,
         "HTTP-Referer": "https://render.com",
-        "X-Title": APP_NAME,
+        "X-Title": APP_CONFIG.appName,
       },
       body: JSON.stringify({
         model: MODEL,
@@ -148,5 +138,5 @@ app.post("/ask/stream", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`${APP_NAME} running on port ${PORT} 🚀`);
+  console.log(`${APP_CONFIG.appName} running on port ${PORT} 🚀`);
 });
