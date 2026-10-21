@@ -81,7 +81,7 @@ app.post("/ask/stream", async (req, res) => {
 
   try {
     const completion = await client.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: llama3-70b-8192
       messages: payloadMessages,
       stream: true,
       max_tokens: 500
