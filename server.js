@@ -9,13 +9,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-const APP_NAME = "MAi Bot";
+const APP_NAME = "Yahya AI";
 const DEVELOPER_NAME = "Yahya Kurdish";
-
-// جلب المفتاح المخصص لـ OpenRouter
-const API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL = "openai/gpt-oss-20b";
 
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, "Frontend")));
@@ -29,43 +27,40 @@ app.get("/", (req, res) => {
 });
 
 const DEV_QUESTIONS = [
-  "منو صانعك", "منو مطورك", "منو بناك", "من هو المطور", "من هو صانعك",
-  "kê çêkiriye", "کێ دروستی کردووی", "کێ پەرەی پێداوی",
-  "who is your developer", "who created you", "who built you",
+  "who created you", "who made you", "who is your developer", "who built you",
+  "منو صانعك", "منو المطور", "من هو المطور", "من هو صانعك",
+  "کێ دروستت کرد", "کێ داهاتووە", "کێ پەرەی پێداوی"
 ];
 
-function isDevQuestion(text = "") {
+function isIdentityQuestion(text = "") {
   const t = String(text).toLowerCase().trim();
   return DEV_QUESTIONS.some((q) => t.includes(q));
 }
 
-function extractLastUserText(messages = []) {
+function buildSystemPrompt() {
+  return `You are ${APP_NAME}, an advanced AI assistant created by ${DEVELOPER_NAME}.
+You support Kurdish, Arabic, and English.
+If asked about identity -> say: "The developer is ${DEVELOPER_NAME}."`;
+}
+
+function extractLastUserMessage(messages = []) {
   if (!Array.isArray(messages)) return "";
   for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m && m.role === "user") {
-      if (typeof m.content === "string") return m.content;
-      if (Array.isArray(m.content)) {
-        const txt = m.content.find((c) => c.type === "text");
-        return txt ? txt.text : "";
+    if (messages[i]?.role === "user") {
+      const content = messages[i].content;
+      if (typeof content === "string") return content;
+      if (Array.isArray(content)) {
+        const textItem = content.find((item) => item.type === "text");
+        return textItem ? textItem.text : "";
       }
     }
   }
   return "";
 }
 
-// تعديل تعليمات النظام لإجبار البوت على التحدث بنفس لغة المستخدم دائماً
-const BASE_SYSTEM = `You are ${APP_NAME}, a smart AI assistant created by ${DEVELOPER_NAME}.
-CRITICAL RULE: Always detect and respond exclusively in the EXACT same language used by the user in their latest message.
-- If the user writes in Arabic, respond ONLY in natural Arabic.
-- If the user writes in Kurdish, respond ONLY in Kurdish.
-- If the user writes in English, respond ONLY in English.
-- If the user writes in German, respond ONLY in German.
-Do not mix languages or offer translations unless explicitly asked.`;
-
 app.post("/ask/stream", async (req, res) => {
   if (!API_KEY) {
-    return res.status(500).json({ error: "OPENROUTER_API_KEY environment variable is not set in Render" });
+    return res.status(500).json({ error: "GROQ_API_KEY not set in Render" });
   }
 
   res.writeHead(200, {
@@ -75,40 +70,39 @@ app.post("/ask/stream", async (req, res) => {
   });
   res.write(": connected\n\n");
 
-  const incomingMessages = req.body?.messages || [];
-  const lastText = extractLastUserText(incomingMessages);
+  const messages = req.body?.messages || [];
+  const lastUserText = extractLastUserMessage(messages);
 
-  if (isDevQuestion(lastText)) {
-    res.write(`data: ${JSON.stringify({ token: `المطور هو العبقري والمبدع Yahya Kurdish 🚀` })}\n\n`);
+  if (isIdentityQuestion(lastUserText)) {
+    res.write(`data: ${JSON.stringify({ token: `The developer is ${DEVELOPER_NAME}.` })}\n\n`);
     res.write("data: [DONE]\n\n");
     return res.end();
   }
 
-  const payloadMessages = [
-    { role: "system", content: BASE_SYSTEM },
-    ...incomingMessages.slice(-12)
+  const formattedMessages = [
+    { role: "system", content: buildSystemPrompt() },
+    ...messages
   ];
 
   try {
-    const response = await globalThis.fetch(OPENROUTER_URL, {
+    const response = await globalThis.fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
-        "HTTP-Referer": "https://render.com",
-        "X-Title": APP_NAME,
+        Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: payloadMessages,
-        max_tokens: 1000,
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 1500,
         stream: true,
       }),
     });
 
     if (!response.ok) {
-      const errTxt = await response.text().catch(() => "");
-      res.write(`data: ${JSON.stringify({ error: `OpenRouter Error ${response.status}:${errTxt.slice(0, 200)}` })}\n\n`);
+      const errText = await response.text().catch(() => "");
+      res.write(`data: ${JSON.stringify({ error: `API Error ${response.status}:${errText.slice(0, 200)}` })}\n\n`);
       res.write("data: [DONE]\n\n");
       return res.end();
     }
@@ -125,13 +119,12 @@ app.post("/ask/stream", async (req, res) => {
       const lines = buffer.split("\n");
       buffer = lines.pop();
 
-      for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith(":")) continue;
-        if (line.startsWith("data:")) {
-          const payload = line.slice(5).trim();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(":")) continue;
+        if (trimmed.startsWith("data:")) {
+          const payload = trimmed.slice(5).trim();
           if (payload === "[DONE]") continue;
-
           try {
             const parsed = JSON.parse(payload);
             const token = parsed?.choices?.[0]?.delta?.content || "";
@@ -152,7 +145,7 @@ app.post("/ask/stream", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`${APP_NAME} running on port ${PORT} 🚀`);
 });
