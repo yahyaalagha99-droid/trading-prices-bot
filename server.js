@@ -18,7 +18,7 @@ const API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // أقوى نموذج في Groq
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "mixtral-8x7b-32768";
 
 // =========================
 // ملفات الواجهة
