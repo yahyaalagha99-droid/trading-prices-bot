@@ -18,7 +18,7 @@ Professional trading prices bot with price prediction for mobile and web.
 ## 🛠️ التقنيات المستخدمة (Tech Stack)
 - **Backend:** Node.js, Express.js
 - **Frontend:** HTML5, CSS3, JavaScript (Vanilla ES6)
-- **AI Provider:** Groq API
+- **AI Provider:** OpenRouter / Groq API (`google/gemini-2.5-flash`)
 - **Deployment:** Render Platform
 
 ---
